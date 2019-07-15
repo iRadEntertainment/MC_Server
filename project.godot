@@ -19,6 +19,10 @@ config/name="Server_MC"
 run/main_scene="res://server.tscn"
 config/icon="res://icon.png"
 
+[autoload]
+
+remote_func="*res://remote_func.gd"
+
 [display]
 
 window/size/width=100

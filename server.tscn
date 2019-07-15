@@ -6,9 +6,5 @@
 script = ExtResource( 1 )
 
 [node name="tmr" type="Timer" parent="."]
-process_mode = 1
 wait_time = 50.0
-one_shot = false
-autostart = false
-
 [connection signal="timeout" from="tmr" to="." method="_on_tmr_timeout"]

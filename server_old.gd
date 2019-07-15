@@ -16,42 +16,32 @@ const config_path  = "res://server_config.cfg"
 const data_path    = "res://data.mcd"
 var log_max_size = 1000
 var server_log = []
-
 var registered_users = {"Dario":[0,[]],"Monica":[0,[]],"Luis":[0,[]],
 						"Antonia":[0,[]],"Blago":[0,[]],"Liisa":[0,[]],
 						"Valeria":[0,[]],"Giulio":[0,[]]}
 
+enum Save{ALL,SERVER_LOG,MAX_USER_CONNECTED,USERS_DIC}
 
+#commands
+enum Cmds{SERVER,UPDATE} #server management or update management
+
+enum Serv_in	{SHUT_DOWN,			#simple command from MASTER client
+				REBOOT,				#simple
+				SEND_LOG,			#simple
+				ADD_USER}			#ARG = string
+enum Serv_out	{SHUTTING_DOWN,		#simple command for ALL clients
+				LOG_UPDATED}		#simple command from MASTER client
+
+enum Updt_up	{NONE}
+enum Updt_req	{ALL_VARS,
+				NUM_USER}
 
 #=========== INIT
-var one_time_update = false
 func _ready():
-	#on time update function to operate on data resorting and savings THEN quit
-	if one_time_update:
-		print("One time update ON, server will NOT be initialized")
-		one_time_update()
-		#prevent all the other init operations (quitting at the end of the func anyway)
-		return
-	
 	load_config()
 	load_datas()
 	setup_server()
 	start_server()
-
-func one_time_update():
-	#the content is adjusted any time a new update need to happen
-#	load_config()
-#	for i in range(server_log.size()):
-#		var old_time = server_log[i][0]
-#		server_log[i][0] = OS.get_unix_time_from_datetime({"year":2019,
-#							"month":old_time[0],
-#							"day":old_time[1],
-#							"hours":old_time[2],
-#							"min":old_time[3],
-#							"sec":old_time[4]})
-#
-#	save_config()
-	get_tree().quit()
 
 func setup_server():
 	get_tree().multiplayer.connect("network_peer_packet",self,"_on_packets_received")
@@ -78,25 +68,24 @@ func start_server():
 #================ USER MANAGEMENT
 func _user_connected(id):
 	self.num_user = get_tree().multiplayer.get_network_connected_peers().size()
-	log_print(str("Connected - Tot user: ",num_user),id)
+	log_print(str("Connected to server! - Tot user: ",num_user),id)
 	max_users_connected = max(max_users_connected,num_user)
 	#---associate user
-	var user_name = remote_func.ask_user_name(id)
-	associate_user(user_name,id)
+	dissociate_user(id)
 
 func _user_disconnected(id):
 	self.num_user = get_tree().multiplayer.get_network_connected_peers().size()
-	log_print(str("Disconnected - Tot user: ",num_user),id)
+	log_print(str("User disconnected from server! ID:",id," - Tot user: ",num_user))
 	#---dissociate user
 	dissociate_user(id)
 
 func _user_num_changed(val):
 	num_user = val
-#	log_print(str("Total users: " , num_user) )
+	log_print(num_user)
+	var msg = [Cmds.UPDATE,Updt_req.NUM_USER, num_user]
+	send_command(msg)
 
 func associate_user(username,id): #associate the name in the dictionary with the user id
-	if username == null: return
-	
 	if registered_users.has(username):
 		registered_users[username].append(id)
 	else:
@@ -143,11 +132,42 @@ func id2username(id):
 				break
 	return username
 
+#============= SENDING INFOS
+func send_command(cmd, id=0): #id=0 send to all the peers connected
+	if num_user != 0:
+		get_tree().multiplayer.send_bytes(var2bytes(cmd),id)
+
+func update_client(id,arg):
+	var cmd = [Cmds.UPDATE,Updt_req.ALL_VARS,arg]
+	send_command(cmd, id)
+	log_print(str("Sending UPDATE-ALL_VARS to ",id))
+
+#============= RECEIVING COMMANDS
+func _on_packets_received(id,packets):
+	var msg_received = bytes2var(packets)
+	log_print(str("Sending packets:",msg_received),id)
+	match msg_received[0]:
+		Cmds.SERVER:
+			match msg_received[1]: #Serv_in{SHUT_DOWN,REBOOT,SEND_LOG,ADD_USER}
+				Serv_in.SHUT_DOWN: manual_shut_down(id)
+				Serv_in.REBOOT:    pass
+				Serv_in.SEND_LOG:  update_client(id,server_log)
+				Serv_in.ADD_USER:  add_user(id,msg_received[2])
+		Cmds.UPDATE:
+			match msg_received[1]:
+				Updt_req.ALL_VARS: update_client(id,"ciccio")
+				Updt_req.NUM_USER: _user_num_changed(num_user)
+
+#============= SERVER FORCED UPDATES
+func add_user(id,val):
+	log_print(str("Adding user: ",val),id)
+
 #============= SERVER FUNC
 remote func shut_server():
 	log_print("quitting")
 	#---send "server disconnetting" to all clients
-	
+	var cmd = [Cmds.SERVER,Serv_out.SHUTTING_DOWN]
+	send_command(cmd)
 	#---disconnect all clients
 	
 	#---remove peer network
@@ -155,8 +175,7 @@ remote func shut_server():
 	#---save config_file
 	save_config()
 	#---quit server application
-	yield(get_tree(),"idle_frame")
-	yield(get_tree(),"idle_frame")
+	OS.delay_msec(50)
 	get_tree().quit()
 
 func manual_shut_down(id):
@@ -164,10 +183,9 @@ func manual_shut_down(id):
 	shut_server()
 
 func log_print(string,id=1):
-	var time_unix = OS.get_unix_time()
 	var dic = OS.get_datetime()
 	var time = [dic["month"],dic["day"],dic["hour"],dic["minute"],dic["second"]]
-	var log_entry = [time_unix,id,string]
+	var log_entry = [time,id,string]
 	server_log.push_back(log_entry)
 	while server_log.size() > log_max_size:
 		server_log.pop_front()
@@ -177,16 +195,18 @@ func log_print(string,id=1):
 	var format_str = str(time_str," ",id2username(id),": ",string)
 	print(format_str)
 	
-	#sending last log entry to all clients
-	remote_func.send_last_server_entry(log_entry)
+	#sending a command to update the clients who are showing server logs
+	if num_user != 0:
+		var cmd = [Cmds.SERVER,Serv_out.LOG_UPDATED]
+		send_command(cmd)
 
 #============= SAVE AND LOAD FUNC
 func save_config(val = 0):
 	var config_file = ConfigFile.new()
 	if Directory.new().file_exists(config_path): config_file.load(config_path)
-	if val in [0]: config_file.set_value("logs","server_log",server_log)
-	if val in [0]: config_file.set_value("logs","max_users_connected",max_users_connected)
-	if val in [0]: config_file.set_value("users","registered_users",registered_users)
+	if val in [0,Save.SERVER_LOG]:         config_file.set_value("logs","server_log",server_log)
+	if val in [0,Save.MAX_USER_CONNECTED]: config_file.set_value("logs","max_users_connected",max_users_connected)
+	if val in [0,Save.USERS_DIC]:          config_file.set_value("users","registered_users",registered_users)
 	config_file.save(config_path)
 
 func load_config():
