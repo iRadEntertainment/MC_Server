@@ -17,9 +17,8 @@ const data_path    = "res://data.mcd"
 var log_max_size = 1000
 var server_log = []
 
-var registered_users = {"Dario":[0,[]],"Monica":[0,[]],"Luis":[0,[]],
-						"Antonia":[0,[]],"Blago":[0,[]],"Liisa":[0,[]],
-						"Valeria":[0,[]],"Giulio":[0,[]]}
+var users_auth = {}
+var user_stats = {}
 
 
 
@@ -40,17 +39,7 @@ func _ready():
 
 func one_time_update():
 	#the content is adjusted any time a new update need to happen
-#	load_config()
-#	for i in range(server_log.size()):
-#		var old_time = server_log[i][0]
-#		server_log[i][0] = OS.get_unix_time_from_datetime({"year":2019,
-#							"month":old_time[0],
-#							"day":old_time[1],
-#							"hours":old_time[2],
-#							"min":old_time[3],
-#							"sec":old_time[4]})
-#
-#	save_config()
+	
 	get_tree().quit()
 
 func setup_server():

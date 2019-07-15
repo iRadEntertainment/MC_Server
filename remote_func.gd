@@ -5,9 +5,11 @@ onready var server = get_tree().get_root().get_node("server")
 
 #=========== SERVER COMMANDS ==============
 remote func shut_down_server():
+	server.log_print(str(multiplayer.get_rpc_sender_id()))
 	server.shut_server()
 
 remote func restart_server():
+	server.log_print(str(multiplayer.get_rpc_sender_id()))
 	OS.execute("./restart_MC_server.sh",[],false)
 	server.shut_server()
 
@@ -25,3 +27,8 @@ func ask_user_name(id):
 	var user_name = null
 	user_name = rpc_id(id,"return_user_name")
 	return user_name
+
+#================ TESTS ======================
+remote func test():
+	server.log_print("TEST: successful")
+	return true
