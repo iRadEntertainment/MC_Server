@@ -1,6 +1,6 @@
 extends Node
 
-const SERVER_VERSION = "0.1"
+const SERVER_VERSION = "0.2"
 const PORT           = 5000
 var   max_users      = 200
 const AUTO_SHUT_DOWN = 120
@@ -86,32 +86,32 @@ func _user_num_changed(val):
 func associate_user(username,id): #associate the name in the dictionary with the user id
 	if username == null: return
 	
-	if registered_users.has(username):
-		registered_users[username].append(id)
+	if users_auth.has(username):
+		users_auth[username].append(id)
 	else:
 		log_print(str("ERROR: impossible to associate ",username," (id ",id,") to any registered user"))
 
 func dissociate_user(id): #dissociate the name in the dictionary
-	for key in registered_users.keys():
-		if id in registered_users[key]:
-			registered_users[key].erase(id)
+	for key in users_auth.keys():
+		if id in users_auth[key]:
+			users_auth[key].erase(id)
 			break
 
 #============== USER AUTHORIZATION
 func auth_request(id,pw):
-	if not id2username(id) in registered_users.keys():
-		log_print(str("ERROR: Impossible auth - id(",id,") not found in registered_users"),id)
+	if not id2username(id) in users_auth.keys():
+		log_print(str("ERROR: Impossible auth - id(",id,") not found in users_auth"),id)
 		#TODO manage error on the client -> send the error from the server
 		return
 	var username = id2username(id)
-	if registered_users[username][0] == 0:
+	if users_auth[username][0] == 0:
 		first_auth(id,pw)
 	else:
 		auth_user(id,pw)
 
 func first_auth(id,pw):
 	var username = id2username(id)
-	registered_users[username][0] = pw
+	users_auth[username][0] = pw
 	#TODO: save the sha pw in the config file
 
 func auth_user(id,pw):
@@ -126,8 +126,8 @@ func id2username(id):
 	elif id == 0:
 		username = "All"
 	else:
-		for key in registered_users.keys():
-			if id in registered_users[key][1]:
+		for key in users_auth.keys():
+			if id in users_auth[key][1]:
 				username = key
 				break
 	return username
@@ -175,7 +175,7 @@ func save_config(val = 0):
 	if Directory.new().file_exists(config_path): config_file.load(config_path)
 	if val in [0]: config_file.set_value("logs","server_log",server_log)
 	if val in [0]: config_file.set_value("logs","max_users_connected",max_users_connected)
-	if val in [0]: config_file.set_value("users","registered_users",registered_users)
+	if val in [0]: config_file.set_value("users","users_auth",users_auth)
 	config_file.save(config_path)
 
 func load_config():
@@ -186,7 +186,7 @@ func load_config():
 	config_file.load(config_path)
 	server_log          = config_file.get_value("logs","server_log",[])
 	max_users_connected = config_file.get_value("logs","max_users_connected",0)
-	registered_users    = config_file.get_value("users","registered_users",registered_users)
+	users_auth    = config_file.get_value("users","users_auth",users_auth)
 
 func save_datas():
 	pass

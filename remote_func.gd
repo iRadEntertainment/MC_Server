@@ -18,6 +18,8 @@ remote func send_server_log(id):
 	rpc_id(id,"receive_server_log",server.server_log)
 
 remote func send_last_server_entry(entry,id = null):
+	var connected = get_tree().has_network_peer()
+	if not connected: return
 	if id:
 		rpc_id(id,"receive_last_server_entry",entry)
 	else:
