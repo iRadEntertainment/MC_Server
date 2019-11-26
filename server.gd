@@ -1,11 +1,16 @@
+#============================#
+#         server.gd
+#============================#
+
 extends Node
 
 const SERVER_VERSION = "0.2"
 const PORT           = 5000
 var   max_users      = 200
-const AUTO_SHUT_DOWN = 120
 
-var fl_auto_shut = false
+#timer
+var auto_shut_down = 120   setget _set_auto_shut_down_time
+var fl_auto_shut   = false setget _set_auto_shut_down
 
 #stats
 var num_user = 0 setget _user_num_changed
@@ -17,8 +22,9 @@ const data_path    = "res://data.mcd"
 var log_max_size = 1000
 var server_log = []
 
-var users_auth = {}
-var user_stats = {}
+var users_existing = {} # {"username":code, "username":code, ... }
+var users_auth     = {} # {"username":[id1,id2,...], "username2":[...]}
+var user_stats     = {}
 
 
 
@@ -49,7 +55,7 @@ func setup_server():
 	
 	#timers
 	if fl_auto_shut:
-		$tmr.wait_time = AUTO_SHUT_DOWN
+		$tmr.wait_time = auto_shut_down
 		$tmr.start()
 	
 
@@ -65,6 +71,11 @@ func start_server():
 		return
 	
 #================ USER MANAGEMENT
+func add_user(id, username, code):
+	log_print("Added new user: %s"%username)
+	users_existing[username] = code
+	save_datas()
+
 func _user_connected(id):
 	self.num_user = get_tree().multiplayer.get_network_connected_peers().size()
 	log_print(str("Connected - Tot user: ",num_user),id)
@@ -98,29 +109,13 @@ func dissociate_user(id): #dissociate the name in the dictionary
 			break
 
 #============== USER AUTHORIZATION
-func auth_request(id,pw):
-	if not id2username(id) in users_auth.keys():
-		log_print(str("ERROR: Impossible auth - id(",id,") not found in users_auth"),id)
-		#TODO manage error on the client -> send the error from the server
-		return
-	var username = id2username(id)
-	if users_auth[username][0] == 0:
-		first_auth(id,pw)
-	else:
-		auth_user(id,pw)
-
-func first_auth(id,pw):
-	var username = id2username(id)
-	users_auth[username][0] = pw
-	#TODO: save the sha pw in the config file
-
-func auth_user(id,pw):
-	var auth = -1
-	
-	return auth
+func auth_request(id,username,pw):
+	if not username in users_existing.keys():
+		
+		return false
 
 func id2username(id):
-	var username = "Unknown"
+	var username = "Unknown(%s)"%id
 	if id==1:
 		username = "Server"
 	elif id == 0:
@@ -149,8 +144,13 @@ remote func shut_server():
 	get_tree().quit()
 
 func manual_shut_down(id):
-	log_print("manual shut down",id)
+	log_print("%s: manual shut down",id )
 	shut_server()
+
+func manual_restart(id):
+	log_print("%s: manual restart",id )
+	OS.execute("./restart_MC_server.sh",[],false)
+	pass
 
 func log_print(string,id=1):
 	var time_unix = OS.get_unix_time()
@@ -175,33 +175,44 @@ func save_config(val = 0):
 	if Directory.new().file_exists(config_path): config_file.load(config_path)
 	if val in [0]: config_file.set_value("logs","server_log",server_log)
 	if val in [0]: config_file.set_value("logs","max_users_connected",max_users_connected)
-	if val in [0]: config_file.set_value("users","users_auth",users_auth)
 	config_file.save(config_path)
 
 func load_config():
 	if not Directory.new().file_exists(config_path):
-		create_default_config()
+		log_print("Creating default config_file.cfg")
+		save_config()
 		return
 	var config_file = ConfigFile.new()
 	config_file.load(config_path)
 	server_log          = config_file.get_value("logs","server_log",[])
 	max_users_connected = config_file.get_value("logs","max_users_connected",0)
-	users_auth    = config_file.get_value("users","users_auth",users_auth)
 
-func save_datas():
-	pass
+func save_datas(val = 0):
+	var data_file = ConfigFile.new()
+	if Directory.new().file_exists(data_path): data_file.load(data_path)
+	if val in [0,1]: data_file.set_value("users","users_existing",users_existing)
+	
+	data_file.save(data_path)
 
 func load_datas():
-	pass
+	if not Directory.new().file_exists(data_path):
+		log_print("Creating default data.mcd")
+		save_datas()
+		return
+	
+	var data_file = ConfigFile.new()
+	data_file.load(data_path)
+	users_existing = data_file.get_value("users","users_existing",{})
 
-func create_default_config():
-	log_print("Server: creating default config_file.cfg")
-	save_config()
-
-func create_default_data():
-	pass
 
 #============= TIMERS
 func _on_tmr_timeout(): shut_server()
 
+func _set_auto_shut_down(val):
+	fl_auto_shut = val
+	if fl_auto_shut: $tmr.start(0)
 
+func _set_auto_shut_down_time(val):
+	auto_shut_down = val
+	$tmr.wait_time = auto_shut_down
+	if fl_auto_shut: $tmr.start(0)

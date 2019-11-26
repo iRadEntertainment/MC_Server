@@ -5,13 +5,22 @@ onready var server = get_tree().get_root().get_node("server")
 
 #=========== SERVER COMMANDS ==============
 remote func shut_down_server():
-	server.log_print(str(multiplayer.get_rpc_sender_id()))
-	server.shut_server()
+	server.manual_shut_down(multiplayer.get_rpc_sender_id())
 
 remote func restart_server():
-	server.log_print(str(multiplayer.get_rpc_sender_id()))
-	OS.execute("./restart_MC_server.sh",[],false)
-	server.shut_server()
+	server.maunal_restart(multiplayer.get_rpc_sender_id())
+
+
+#=========== USER MANAGEMENT ==============
+remote func send_existing_users():
+	return server.existing_users.keys()
+
+remote func auth_request(username, code):
+	return server.auth_request( multiplayer.get_rpc_sender_id() , username, code )
+
+remote func add_user(username,code):
+	server.add_user( multiplayer.get_rpc_sender_id() , username, code)
+
 
 #=========== SERVER LOGS ==============
 remote func send_server_log(id):
@@ -32,7 +41,7 @@ func ask_user_name(id):
 #================ FILE MANAGEMENT ======================
 remote func send_file_content(which):
 	var sender_id = multiplayer.get_rpc_sender_id()
-	server.log_print( str( sender_id ) + " requested file %s"%which )
+	server.log_print( "requested file %s"%which, sender_id )
 	
 	var allowed = ["remote_func","server"]
 	if not which in allowed:
