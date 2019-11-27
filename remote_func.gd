@@ -13,7 +13,7 @@ remote func restart_server():
 
 #=========== USER MANAGEMENT ==============
 remote func send_existing_users():
-	return server.existing_users.keys()
+	return server.users_existing.keys()
 
 remote func auth_request(username, code):
 	return server.auth_request( multiplayer.get_rpc_sender_id() , username, code )
