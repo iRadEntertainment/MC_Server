@@ -1,3 +1,7 @@
+#============================#
+#       remote_func.gd
+#============================#
+
 extends Node
 
 onready var server = get_tree().get_root().get_node("server")
@@ -13,6 +17,7 @@ remote func restart_server():
 
 #=========== USER MANAGEMENT ==============
 remote func send_existing_users():
+<<<<<<< HEAD
 	var id = multiplayer.get_rpc_sender_id()
 	var users = server.users_existing.keys()
 	rpc_id(id,"receive_existing_users",users)
@@ -21,6 +26,16 @@ remote func auth_request(username, code):
 	var id     = multiplayer.get_rpc_sender_id()
 	var result = server.auth_request( multiplayer.get_rpc_sender_id() , username, code )
 	rpc_id(id,"auth_request_result",result)
+=======
+	var sender_id = multiplayer.get_rpc_sender_id()
+	var existing_users = server.users_existing.keys()
+	glb.rset_id(sender_id,"existing_users",existing_users)
+
+remote func auth_request(username, code):
+	var sender_id = multiplayer.get_rpc_sender_id()
+	var server_auth = server.auth_request( multiplayer.get_rpc_sender_id() , username, code )
+	glb.rset_id(sender_id,"server_auth",server_auth)
+>>>>>>> 33c638d778cfbb07d50c57a156673e1f5fe00259
 
 remote func add_user(username,code):
 	server.add_user( multiplayer.get_rpc_sender_id() , username, code)

@@ -22,6 +22,7 @@ config/icon="res://icon.png"
 [autoload]
 
 remote_func="*res://remote_func.gd"
+glb="*res://glb.gd"
 
 [display]
 
