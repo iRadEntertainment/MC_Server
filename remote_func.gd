@@ -13,10 +13,14 @@ remote func restart_server():
 
 #=========== USER MANAGEMENT ==============
 remote func send_existing_users():
-	return server.users_existing.keys()
+	var id = multiplayer.get_rpc_sender_id()
+	var users = server.users_existing.keys()
+	rpc_id(id,"receive_existing_users",users)
 
 remote func auth_request(username, code):
-	return server.auth_request( multiplayer.get_rpc_sender_id() , username, code )
+	var id     = multiplayer.get_rpc_sender_id()
+	var result = server.auth_request( multiplayer.get_rpc_sender_id() , username, code )
+	rpc_id(id,"auth_request_result",result)
 
 remote func add_user(username,code):
 	server.add_user( multiplayer.get_rpc_sender_id() , username, code)
